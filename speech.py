@@ -123,6 +123,7 @@ class audio_procession():
         time_object=datetime.now()
         currentTime = time_object.strftime("%d-%m-%y_%H-%M-%S")
         audio_path=Path("./audio_file")/Path(currentTime+".wav")
+        Path(audio_path).parent.mkdir(parents=True, exist_ok=True)
         audio_path=str(audio_path)
         with wave.open(audio_path,"wb") as wf:
             wf.setnchannels(self.channels)

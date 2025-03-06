@@ -8,7 +8,7 @@ from pathlib import Path
 import json
 from opencc import OpenCC
 import configparser
-
+from datetime import datetime
 config=configparser.ConfigParser()
 config.read('config.ini')
 openai_key=config.get('openai','key1')
@@ -25,34 +25,14 @@ class Chatmodel():#核心對話模型
             prompt=promptpath,
             temperature=temperature,
             img_memory=ImageBufferMemory())
-    def text_retrival(self,text,keyword) -> str:#取出收音的文字
-        if keyword in self.title:#偵測到關鍵字啟用
-            dataretiver=self.local_db.get_retriver(keyword=keyword)
-        else:
-            dataretiver=self.local_db.get_retriver()
-        results=dataretiver.invoke(text)
-        output=''
-        for i,content in enumerate(results):
-            output=output+f"Document {i+1}: Text:{content.page_content}\n\
-                            Metadata: {content.metadata}\n"
-
-        #print(output)
-
-        return output
-    def run_slot(self,texts:dict,stm:str)->dict:#intention model用
-        mytexts={}
-        mytexts['what']=texts['what']
-        mytexts['context']=stm
-        output=self.model.run(text_dict=mytexts)
-        print(output)
-        result=json.loads(output)
-        return result
-    def run_intention(self,texts:dict,stm:str)->dict:#intention model用
-        mytexts={}
-        mytexts['what']=texts['what']
-        mytexts['context']=stm
-        result=self.model.run(text_dict=mytexts)
-        return result
+    def save_text(self,response:str)->None:     #將對話儲存為txt檔
+        currentDateAndTime = datetime.now()
+        currentTime = currentDateAndTime.strftime("%Y-%m-%d")
+        currentMoment= currentDateAndTime.strftime("%Y-%m-%d,%H:%M:%S")
+        path='./conversation_history/response_'+currentTime+".txt"
+        Path(path).parent.mkdir(parents=True,exist_ok=True)        
+        with open(path,mode="a",encoding="utf-8") as f:
+            f.write(f'(Time: {currentMoment}),'+response)
     def run(self,texts:dict)->list: #主對話model用
         # texts['intention']=intent
         # texts['preacher']=slot['preacher'] if slot['preacher']!=None else ''
@@ -87,6 +67,8 @@ class Chatmodel():#核心對話模型
         input=texts['what']  
         with open('./cv.txt',mode='a',encoding='utf-8')as f:
             f.write(f'Human:{input}\nMobi:{output}\n')
-        results=[input,output]
+        results="Human: "+input+"\nMobi: "+output
         self.stm.set(results)
+        self.save_text(response=results)
+        self.mdb.insert(key=input,value=results)
         return results,texts["context"]+self.stm.get(1)
