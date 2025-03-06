@@ -1,24 +1,19 @@
+import re
 class PromptTemplate():
     def __init__(self, path:str) -> None:
         with open(path, 'r', encoding='utf-8') as f:
-            p = f.read()
-        chunks = str(p).split('{')[1:]
-        self.variables = []
-        for chunk in chunks:
-            variable = chunk.split('}')[0]
-            self.variables.append(variable)
-            p = p.replace('{' + variable + '}',r'{}')
-        self.prompt_chuncks = p.split(r'{}')
+            self.p = f.read()
+        self.pattern1=re.compile("{.+}",re.U)
+        self.pattern2=re.compile("(\s|.)+?\s\s",re.U)
         #print(self.prompt_chuncks)
-        
-    def format(self, input_dict:dict)->str:
-        KeyList = list(input_dict.keys())
-        index = 0
-        prompt = self.prompt_chuncks[index]
-        for variable in self.variables:
-            index = index + 1
-            if variable not in KeyList:
-                prompt = prompt + '' + self.prompt_chuncks[index] 
-            else:
-                prompt = prompt + str(input_dict[variable]) + self.prompt_chuncks[index] 
+    def get_dev_prompt(self):
+        prompt=self.pattern2.search(self.p).group()
         return prompt
+    def format(self, input_dict:dict)->str:
+        true_keylist=input_dict.keys()
+        new_txt=re.search('\s\s(\s|.)+',self.p,re.U).group()
+        for pattern in self.pattern1.finditer(new_txt):
+            key=re.search("(\w|[\u4e00-\u9fff])+",pattern.group(),re.U).group()
+            if key in true_keylist:
+                new_txt=re.sub(pattern.group(),input_dict[key],new_txt,re.U)
+        return new_txt

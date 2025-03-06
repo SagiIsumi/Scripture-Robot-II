@@ -1,0 +1,68 @@
+#python code
+from openai import OpenAI
+
+# Modify OpenAI's API key and API base to use vLLM's API server.
+openai_api_key = "EMPTY"
+openai_api_base = "http://localhost:8000/v1"
+client = OpenAI(
+    api_key=openai_api_key,
+    base_url=openai_api_base,
+)
+prompts = [
+    {
+        "role":"system",
+        "content":"You are an AI assistant called twllm (Taiwan-Llama), and talking to people from Taiwan."
+    },
+    {
+        "role":"user",
+        "content":"嗨你好!"
+    },
+    {
+        "role":"assistant",
+        "content":"你好!我是Taiwan-Llama，有什麼需要協助的嗎?"
+    },
+    {
+        "role":"user",
+        "content":"可以跟我推薦台北的觀光景點嗎?"
+    },
+]
+
+completion = client.chat.completions.create(model="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",
+                                      messages=prompts)
+print("Completion result:", completion)
+
+
+
+#Terminal
+vLLM
+
+curl http://localhost:8000/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "yentinglin/Llama-3-Taiwan-8B-Instruct-awq",
+        "messages": [
+            {
+                "role":"system",
+                "content":"You are an AI assistant called twllm (Taiwan-Llama), and talking to people from Taiwan."
+            },
+            {
+                "role":"user",
+                "content":"嗨你好!"
+            },
+            {
+                "role":"assistant",
+                "content":"你好!我是Taiwan-Llama，有什麼需要協助的嗎?"
+            },
+            {
+                "role":"user",
+                "content":"可以跟我推薦台北的觀光景點嗎?"
+            }
+        ],
+        "max_tokens": 512,
+        "temperature": 0.5
+    }' | jq
+
+#server
+vllm serve yentinglin/Llama-3-Taiwan-8B-Instruct-awq --dtype auto
+
+curl http://localhost:8000/v1/models # check deployment
