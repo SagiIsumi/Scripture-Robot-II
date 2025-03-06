@@ -1,15 +1,19 @@
-import requests
+from openai import OpenAI
+from GPTpackages.PromptTemplate import PromptTemplate
 
-MODEL = "gpt-4o-mini"
-
-class GPTopenai():
-    def __init__(self, openai_api_key, prompt, temperature = 0.1, text_memory=None,model=MODEL, img_memory=None) -> None:
-        self.key = openai_api_key
+class local_LLM():
+    def __init__(self,prompt:str,model:str="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",
+                 temperature:int=1, img_memory=None):
+        openai_api_key = "EMPTY"
+        openai_api_base = "http://localhost:8000/v1"
+        self.client = OpenAI(
+            api_key=openai_api_key,
+            base_url=openai_api_base,
+        )
         self.model=model
-        self.prompt = prompt
-        self.text_stm = text_memory
-        self.img_stm = img_memory
-        self.temperature = temperature
+        self.prompt=PromptTemplate(prompt)
+        self.temperature=temperature
+        self.img_stm =img_memory
 
     def run(self, text_dict: dict, img_list=[],img_refresh=False) -> str:
         send = []
@@ -46,13 +50,7 @@ class GPTopenai():
                 }})
                     
         # load text 
-        if self.text_stm != None:
-            conversation = self.text_stm.get()
-            text_dict['conversation']=conversation
-        dev_prompt=self.prompt.get_dev_prompt()
-        text = dev_prompt+self.prompt.format(text_dict)
-    
-    
+        text = self.prompt.format(text_dict)  
         print("==================================\n"+text+"\n====================================")
         send.append({
             "type": "text",
@@ -60,31 +58,25 @@ class GPTopenai():
         })
 
         # form request
-        message = [{
-            "role": "user",
-            "content": send
-            }]
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.key}"
-            }
-        payload = {
-            "model":self.model,
-            "messages":  message,
-            "temperature": self.temperature,
-            "max_tokens": 1024
-            }
+        dev_prompt=self.prompt.get_dev_prompt()
+        message = [
+            {"role": "developer","content": dev_prompt},
+            {"role": "user","content": send}
+            ]
 
         for i in range(5):
             try:
-                response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-                j = response.json()
-                output = str(j['choices'][0]['message']['content'])
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=message,
+                    temperature=self.temperature,
+                    max_completion_tokens=1024,
+                    frequency_penalty=0.5
+                    )
+                output = str(response.choices[0].message.content)
 
-                return j['choices'][0]['message']['content']
+                return output
             except Exception as e:
                 print(e)
-                print(j["error"]["message"])
                 continue
         return 'gpt error'
-    
