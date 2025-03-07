@@ -32,11 +32,11 @@ if __name__=="__main__":
     setup_logger("main","main_output.log")#開啟日誌
     #以下是啟用各項物件
     knowledgebase=RAG(rag_config=rag_config)#載入RAG database
-    key_value_pairs=load_text(path="./scripts")#載入文檔
+    key_value_pairs=load_text(path=".\scripts")#載入文檔
     knowledgebase.create_faiss_INFPQindex(key_value_pairs)
     historydatabase=RAG(rag_config=rag_config)
     historydatabase.create_faiss_L2index()
-    mainLLM=Chatmodel(promptpath='./prompts/chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase)
+    mainLLM=Chatmodel(promptpath='.\prompts\chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase)
     MyAudio=speech.audio_procession()
     interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=False, enable_face=False, is_FullScreen=False)
     #以上是啟用物件部分
