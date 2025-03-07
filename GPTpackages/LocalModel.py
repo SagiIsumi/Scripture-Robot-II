@@ -5,7 +5,7 @@ class local_LLM():
     def __init__(self,prompt:str,model:str="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",
                  temperature:int=1, img_memory=None):
         openai_api_key = "EMPTY"
-        openai_api_base = "http://140.112.14.207:8000/v1/models"
+        openai_api_base = "http://140.112.14.207:8000/v1"
         self.client = OpenAI(
             api_key=openai_api_key,
             base_url=openai_api_base,
@@ -70,8 +70,6 @@ class local_LLM():
                     model=self.model,
                     messages=message,
                     temperature=self.temperature,
-                    max_completion_tokens=1024,
-                    frequency_penalty=0.5
                     )
                 output = str(response.choices[0].message.content)
 

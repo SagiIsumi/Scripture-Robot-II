@@ -81,8 +81,8 @@ class audio_procession():
     def recording(self)->str:
         p=pyaudio.PyAudio()
         frames=[]
-        threashold=60 #音量閾值
-        max_volume_threashold=45
+        threashold=1000 #音量閾值
+        max_volume_threashold=950
         silent_chunk=0 #沉默時長
         silent_duration=3
         silent_chunks_threshold = int(silent_duration*self.rate/self.chunk)
@@ -142,10 +142,12 @@ class audio_procession():
         print(response)
         response=client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role":"user","content":f"你覺得這是正統中文、英文還是台灣方言?\
+            messages=[{"role": "developer","content": "你是負責判讀語言種類的助理，請根據提問，回答提問所使用的語言是下列三者中的哪一個。chinese、english、taigi，請從中三選一。"},
+                {"role":"user","content":f"你覺得這是正統中文、英文還是台灣方言?\
                        若是正統中文回答:chinese，若是英文回答:english，若是台灣方言回答:taigi。提問:{response.text}"}]
         )
         lg=response.choices[0].message.content
+        print(lg)
         lg=re.search('(chinese)|(taigi)|(english)',lg,re.I).group()
         return lg
             

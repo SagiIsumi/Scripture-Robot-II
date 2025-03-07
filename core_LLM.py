@@ -29,10 +29,10 @@ class Chatmodel():#核心對話模型
         currentDateAndTime = datetime.now()
         currentTime = currentDateAndTime.strftime("%Y-%m-%d")
         currentMoment= currentDateAndTime.strftime("%Y-%m-%d,%H:%M:%S")
-        path='.\conversation_history\\response_'+currentTime+".txt"
+        path='./conversation_history/response_'+currentTime+".txt"
         Path(path).parent.mkdir(parents=True,exist_ok=True)        
         with open(path,mode="a",encoding="utf-8") as f:
-            f.write(f'(Time: {currentMoment}),'+response)
+            f.write(f'(Time: {currentMoment}),'+response+"\n")
     def run(self,texts:dict)->list: #主對話model用
         # texts['intention']=intent
         # texts['preacher']=slot['preacher'] if slot['preacher']!=None else ''
@@ -65,7 +65,7 @@ class Chatmodel():#核心對話模型
             input=texts['what']
         output=self.trans.convert(output)
         input=texts['what']  
-        with open('.\cv.txt',mode='a',encoding='utf-8')as f:
+        with open('./cv.txt',mode='a',encoding='utf-8')as f:
             f.write(f'Human:{input}\nMobi:{output}\n')
         results="Human: "+input+"\nMobi: "+output
         self.stm.set(results)

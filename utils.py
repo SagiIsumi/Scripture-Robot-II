@@ -3,7 +3,6 @@ from pprint import pprint
 import torch
 from pathlib import Path
 from enum import Enum
-from datasets import load_dataset
 import logging
 import json
 from typing import Optional
@@ -40,7 +39,7 @@ class RetrieveOrder(Enum):
 
 
 class RAG():
-    def __init__(self,rag_config:Optional[dict]=None)->None:
+    def __init__(self,name,rag_config:Optional[dict]=None)->None:
         if rag_config==None:
             rag_config = {
                 "embedding_model": "thenlper/gte-base",#BAAI/bge-base-en-v1.5
@@ -53,7 +52,7 @@ class RAG():
         print(f"模型將運行在: {device}")
         self.tokenizer = AutoTokenizer.from_pretrained(rag_config["embedding_model"])
         self.embed_model = AutoModel.from_pretrained(rag_config["embedding_model"]).eval()
-
+        self.name=name
         self.index = None
         self.id2evidence = dict()
         self.embed_dim = len(self.encode_data("Test embedding size"))
@@ -73,6 +72,14 @@ class RAG():
         pprint(results)
     def create_faiss_L2index(self):
         self.index=faiss.IndexFlatL2(self.embed_dim)
+        filepath=self.name+'_index_file.index'
+        jsonpath=self.name+"_id2text.json"
+        if Path(filepath).exists():
+            self.index=faiss.read_index(filepath)            
+            self.insert_acc=self.index.ntotal
+            with open(jsonpath, "r") as f:
+                self.id2evidence = json.load(f)        
+            
     def create_faiss_INFPQindex(self,key_value_pairs):
         # Create a FAISS index
         nlist=50
@@ -98,11 +105,13 @@ class RAG():
         norm = np.linalg.norm(feature)
         return feature / norm
     def index_initialize(self,keylist:list,valuelist:list)->None:
-        xb=np.zeros((1,1))
-        if Path('index_file.index').exists():
-            self.index=faiss.read_index('index_file.index')
+        xb=np.zeros((1,1))            
+        filepath=self.name+'_index_file.index'
+        jsonpath=self.name+"_id2text.json"
+        if Path(filepath).exists():
+            self.index=faiss.read_index(filepath)            
             self.insert_acc=self.index.ntotal
-            with open("id2text.json", "r") as f:
+            with open(jsonpath, "r") as f:
                 self.id2evidence = json.load(f)
             assert self.index.is_trained
         else:
@@ -114,16 +123,24 @@ class RAG():
                     xb=np.concatenate((xb,key_embedding),axis=0)
             
             self.id2evidence={str(i):value for i,value in enumerate(valuelist)}
-            with open('id2text.json',"w") as f:
+            jsonpath=self.name+'_id2text.json'
+            with open(jsonpath,"w") as f:
                 json.dump(self.id2evidence,f) 
             assert not self.index.is_trained
             self.index.train(xb)
             assert self.index.is_trained
             self.index.add(xb)
-            self.insert_acc=self.index.ntotal-1
-            faiss.write_index(self.index,'index_file.index')
+            self.insert_acc=self.index.ntotal
+            filepath=self.name+'_index_file.index'
+            faiss.write_index(self.index,filepath)
 
-
+    def file_wirte(self):
+        filepath=self.name+'_index_file.index'
+        jsonpath=self.name+'_id2text.json'
+        with open(jsonpath,"w") as f:
+            json.dump(self.id2evidence,f)         
+        faiss.write_index(self.index,filepath)
+        
     def insert(self, key:str, value:str)->None:
         """Use the key text as the embedding for future retrieval of the value text."""
         embedding = self.encode_data(key).astype('float32')  # Ensure the data type is float32
@@ -133,8 +150,11 @@ class RAG():
 
     def retrieve(self, query: str, top_k: int) -> list[str]:
         """Retrieve top-k text chunks"""
+        print(query)
         embedding = self.encode_data(query).astype('float32')  # Ensure the data type is float32
         top_k = min(top_k, self.insert_acc)
+        if top_k==0:
+            return []
         distances, indices = self.index.search(np.expand_dims(embedding, axis=0), top_k)
         distances = distances[0].tolist()
         indices = indices[0].tolist()

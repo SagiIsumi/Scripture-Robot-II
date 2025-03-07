@@ -2,3 +2,7 @@
 id2text.json
 index_file.index
 config.ini
+**/*.json
+**/*.index
+**/audio_file/
+**/conversation_history/
