@@ -6,7 +6,7 @@ import wave
 import threading
 import pygame
 from datetime import datetime
-from test_liou_api import recognize
+from tri_recognition import recognize
 import numpy as np
 from trilingual_module import female_speak,minnan_speak2
 from openai import OpenAI
@@ -29,7 +29,7 @@ class audio_procession():
         self.triger=False
 
     def inner_female_speak(self,input_text):
-        female_speak(input_text,volume=1,speed='fast',tone='normal')
+        female_speak(input_text,volume=1,speed='normal',tone='normal')
         self.triger=True
     def inner_minnan_speak(self,input_text):
         minnan_speak2(input_text)
@@ -48,13 +48,15 @@ class audio_procession():
         except Exception as e:
             print(e)
         p=pyaudio.PyAudio()
-        detecting_threashold=55#音量閾值
+        detecting_threashold=24#音量閾值
         stream=p.open(format=self.audio_format,
                 channels=self.channels,
                 rate=self.rate,
                 input=True,
                 #input_device_index=2,
                 frames_per_buffer=self.chunk)
+        while pygame.mixer.get_init()==None:
+            continue
         try:
             while True:#開始收音
                 for i in range(12):
@@ -62,7 +64,7 @@ class audio_procession():
                     frames.append(data)
                 audio_data = np.frombuffer(b"".join(frames), dtype=np.int16)
                 volume = np.abs(audio_data).mean()
-                print(volume)
+                #print(volume)
                 if volume>detecting_threashold:#音量大於閾值結束播音
                     pygame.mixer.music.stop()
                     interrupt=True
@@ -81,8 +83,8 @@ class audio_procession():
     def recording(self)->str:
         p=pyaudio.PyAudio()
         frames=[]
-        threashold=1000 #音量閾值
-        max_volume_threashold=950
+        threashold=100 #音量閾值
+        max_volume_threashold=95
         silent_chunk=0 #沉默時長
         silent_duration=3
         silent_chunks_threshold = int(silent_duration*self.rate/self.chunk)
@@ -117,6 +119,7 @@ class audio_procession():
 
         verify_data=np.frombuffer(b"".join(frames), dtype=np.int16)
         max_volume = np.abs(verify_data).mean()
+        print(max_volume)
         if max_volume<max_volume_threashold:#若收音為無聲音檔返回None
             return "None"
 
@@ -139,16 +142,18 @@ class audio_procession():
             model="whisper-1",
             file=audio,
             response_format="verbose_json")
-        print(response)
         response=client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[{"role": "developer","content": "你是負責判讀語言種類的助理，請根據提問，回答提問所使用的語言是下列三者中的哪一個。chinese、english、taigi，請從中三選一。"},
                 {"role":"user","content":f"你覺得這是正統中文、英文還是台灣方言?\
                        若是正統中文回答:chinese，若是英文回答:english，若是台灣方言回答:taigi。提問:{response.text}"}]
         )
         lg=response.choices[0].message.content
-        print(lg)
-        lg=re.search('(chinese)|(taigi)|(english)',lg,re.I).group()
+        try:
+            lg=re.search('(chinese)|(taigi)|(english)',lg,re.I).group()
+        except Exception as e:
+            print(lg)
+            print(e)
         return lg
             
     def speech_to_text(self,path)->str:

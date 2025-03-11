@@ -48,10 +48,10 @@ class RAG():
                 "top_k": 5,
                 "order": "similar_at_top"  # ["similar_at_top", "similar_at_bottom", "random"]
             }
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"模型將運行在: {device}")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"模型將運行在: {self.device}")
         self.tokenizer = AutoTokenizer.from_pretrained(rag_config["embedding_model"])
-        self.embed_model = AutoModel.from_pretrained(rag_config["embedding_model"]).eval()
+        self.embed_model = AutoModel.from_pretrained(rag_config["embedding_model"]).eval().to(self.device)
         self.name=name
         self.index = None
         self.id2evidence = dict()
@@ -89,18 +89,19 @@ class RAG():
         self.index = faiss.IndexIVFPQ(self.quantizer,self.embed_dim,nlist,M,n_bits)
         key_list=[]
         value_list=[]
+        print("ph1")
         for keys,values in key_value_pairs:
             key_list.append(keys)
             value_list.append(values)
         self.index_initialize(keylist=key_list,valuelist=value_list)
     def encode_data(self, sentence: str) -> np.ndarray:
         # Tokenize the sentence
-        encoded_input = self.tokenizer([sentence], padding=True, truncation=True, return_tensors="pt")
+        encoded_input = self.tokenizer([sentence], padding=True, truncation=True, return_tensors="pt").to(self.device)
         # Compute token embeddings
         with torch.no_grad():
             model_output = self.embed_model(**encoded_input)
             # Perform pooling. In this case, cls pooling.
-            sentence_embeddings = model_output.last_hidden_state[:, 0]
+            sentence_embeddings = model_output.last_hidden_state[:, 0].to("cpu")
         feature = sentence_embeddings.numpy()[0]
         norm = np.linalg.norm(feature)
         return feature / norm
@@ -127,7 +128,9 @@ class RAG():
             with open(jsonpath,"w") as f:
                 json.dump(self.id2evidence,f) 
             assert not self.index.is_trained
+            print("ph2")
             self.index.train(xb)
+            print("ph3")
             assert self.index.is_trained
             self.index.add(xb)
             self.insert_acc=self.index.ntotal
@@ -150,7 +153,6 @@ class RAG():
 
     def retrieve(self, query: str, top_k: int) -> list[str]:
         """Retrieve top-k text chunks"""
-        print(query)
         embedding = self.encode_data(query).astype('float32')  # Ensure the data type is float32
         top_k = min(top_k, self.insert_acc)
         if top_k==0:
@@ -169,16 +171,18 @@ class RAG():
         text_list = [self.id2evidence[result["link"]] for result in results]
         return text_list    
     
-def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None)-> list[tuple]:
+def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None
+              ,chunk_size:Optional[int]=128,chunk_overlap:Optional[int]=8)-> list[tuple]:
         texts=[]
         sep=["\n\n","\n"," ", "\u200b",  # Zero-width space
         "\uff0c",  # Fullwidth comma
+        "\u3000",
         "\u3001",  # Ideographic comma
         "\uff0e",  # Fullwidth full stop
         "\u3002",  # Ideographic full stop
         "",]
         if spilitter==None: 
-            splitter=RecursiveCharacterTextSplitter(separators=sep,chunk_size=128,chunk_overlap=8)
+            splitter=RecursiveCharacterTextSplitter(separators=sep,chunk_size=chunk_size,chunk_overlap=chunk_overlap)
         raw_documents=None
         assert isinstance(path, str)
         for content in Path(path).glob("*.txt"):

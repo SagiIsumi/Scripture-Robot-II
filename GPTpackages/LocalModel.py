@@ -1,18 +1,21 @@
 from openai import OpenAI
 from GPTpackages.PromptTemplate import PromptTemplate
 from vllm import LLM, SamplingParams
+import configparser
 
 class local_LLM():
     def __init__(self,prompt:str,model:str="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",
                  temperature:int=1, img_memory=None):
-        openai_api_key = "EMPTY"
-        openai_api_base = "http://140.112.14.207:8000/v1"
+        myconfig=configparser.ConfigParser()
+        myconfig.read('config.ini')
+        APIKEY=myconfig.get('openai','key1')
+        openai_api_key = APIKEY
+        openai_api_base = "http://localhost:8000/v1"
         self.client = OpenAI(
             api_key=openai_api_key,
-            base_url=openai_api_base,
         )
-        self.offline_model=LLM(model="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",quantization='AWQ', dtype="float16")
-        self.model=model
+        #self.offline_model=LLM(model="yentinglin/Llama-3-Taiwan-8B-Instruct-awq",quantization='AWQ', dtype="float16")
+        self.model="gpt-4o-mini"
         self.prompt=PromptTemplate(prompt)
         self.temperature=temperature
         self.img_stm =img_memory
@@ -93,6 +96,7 @@ class local_LLM():
                     model=self.model,
                     messages=message,
                     temperature=self.temperature,
+                    max_tokens=256
                     )
                 output = str(response.choices[0].message.content)
 

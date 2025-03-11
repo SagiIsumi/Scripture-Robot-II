@@ -42,11 +42,14 @@ rag_config = {
 setup_logger("main","main_output.log")#開啟日誌
 #以下是啟用各項物件
 knowledgebase=RAG("kdb",rag_config=rag_config)#載入RAG database
-knowlededocs=load_text(path=".\scripts")#載入文檔#list[tuple]
-knowledgebase.create_faiss_INFPQindex(knowlededocs)
+knowledgedocs=load_text(path=".\scripts")#載入文檔#list[tuple]
+knowledgebase.create_faiss_INFPQindex(knowledgedocs)
+keywordbase=RAG("keyword",rag_config=rag_config)
+keyworddocs=load_text(path=".\scripts\scripture_content",chunk_size=24,chunk_overlap=0)
+keywordbase.create_faiss_L2index()
 historydatabase=RAG("mdb",rag_config=rag_config)
 historydatabase.create_faiss_L2index()
-mainLLM=Chatmodel(promptpath='.\prompts\chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase)
+mainLLM=Chatmodel(promptpath='.\prompts\chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase,keywordbase=keywordbase)
 MyAudio=speech.audio_procession()
 interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=False, enable_face=False, is_FullScreen=False)
 #以上是啟用物件部分
@@ -62,6 +65,8 @@ if __name__=="__main__":
     interrupt=False
     action="nothing"
     stm=''
+    for key_value in keyworddocs:
+        keywordbase.insert(key=key_value[0],value=key_value[1])
 
     #開始執行程式
     while True:
@@ -75,6 +80,7 @@ if __name__=="__main__":
         print("finish recording")
         if input=="None":#無聲音檔不執行
             continue
+        start_time=time.perf_counter()
         #interface.get_frame()
         #fileList = os.listdir('input_img')
         fileList = []
@@ -95,8 +101,13 @@ if __name__=="__main__":
         text_dict['what']=text
         text_dict['language']=language
         result,stm=mainLLM.run(text_dict)
-        print(result)
-        interrupt=MyAudio.speaking(result[1],language=language)
+        end_time1=time.perf_counter()
+        interrupt=MyAudio.speaking(result,language=language)
+        end_time2=time.perf_counter()
+        elapsed_time1=end_time1-start_time
+        elapsed_time2=end_time2-start_time
+        print("generate_time",elapsed_time1)
+        print("totaltime:", elapsed_time2)
         
     
 

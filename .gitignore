@@ -6,3 +6,4 @@ config.ini
 **/*.index
 **/audio_file/
 **/conversation_history/
+yentinglin/

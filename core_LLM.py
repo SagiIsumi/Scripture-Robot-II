@@ -15,10 +15,11 @@ openai_key=config.get('openai','key1')
 
 MODEL='gpt-4o-mini'
 class Chatmodel():#核心對話模型
-    def __init__(self,promptpath:str,knowledgeabase,memorybase,openai_key=openai_key,temperature=0.7)->None:
+    def __init__(self,promptpath:str,knowledgeabase,memorybase,keywordbase,openai_key=openai_key,temperature=0.7)->None:
         self.key = openai_key
         self.stm=TextBuffer(buffer_size=5)#短期記憶，學長設計的
         self.kdb=knowledgeabase
+        self.kwdb=keywordbase
         self.mdb=memorybase
         self.trans=OpenCC('s2twp')#簡中轉繁中用，備用的
         self.model=local_LLM(
@@ -47,18 +48,24 @@ class Chatmodel():#核心對話模型
         #     img_list=[]       
         knowldge=""
         memory=''
-        texts["context"]=self.stm.get()
+        keyword=''
+        texts["context"]=self.stm.get(require_num=3)
         top_k_knowledge=self.kdb.retrieve(texts["what"],5)
-        top_k_memory=self.mdb.retrieve(texts["what"],5)
+        top_k_memory=self.mdb.retrieve(texts["what"],3)
+        top_k_keyword=self.kwdb.retrieve(texts['what'],2)
         print(top_k_knowledge)
         print(top_k_memory)
+        print(top_k_keyword)
         for i,content in enumerate(top_k_knowledge):
             knowldge=knowldge+f"Document {i+1}: Text:{content}\n"
         texts["local_data"]=knowldge
         for i,content in enumerate(top_k_memory):
             memory=memory+f"Document {i+1}: Text:{content}\n"
         texts["long_memory"]=memory
-        output=self.model.run(text_dict=texts,img_list=[],img_refresh=True)#丟給GPT
+        for content in top_k_keyword:
+            keyword=keyword+content+'\n'
+        texts["keywords"]=keyword
+        output=self.model.run_online(text_dict=texts,img_list=[],img_refresh=True)#丟給GPT
         if texts['language']=='chinese':
             input=self.trans.convert(texts['what'])
         else:
@@ -71,4 +78,5 @@ class Chatmodel():#核心對話模型
         self.stm.set(results)
         self.save_text(response=results)
         self.mdb.insert(key=input,value=results)
-        return results,texts["context"]+self.stm.get(1)
+        print(results)
+        return output,texts["context"]+self.stm.get(1)
