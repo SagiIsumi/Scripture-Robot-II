@@ -2,11 +2,11 @@ from core_LLM import Chatmodel
 from GPTpackages.ImageBufferMemory import encode_image
 from MOBIpackages import ControlInterface
 from utils import RAG, setup_logger, load_text
-import speech
+from tri_speech_packages.speech import audio_procession
 import threading
 import time
 from pathlib import Path
-from trilingual_module import female_speak, minnan_speak2
+from tri_speech_packages.trilingual_module import female_speak, minnan_speak2
 from pprint import pprint
 import queue
 import os
@@ -50,7 +50,7 @@ keywordbase.create_faiss_L2index()
 historydatabase=RAG("mdb",rag_config=rag_config)
 historydatabase.create_faiss_L2index()
 mainLLM=Chatmodel(promptpath='.\prompts\chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase,keywordbase=keywordbase)
-MyAudio=speech.audio_procession()
+MyAudio=audio_procession()
 interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=False, enable_face=False, is_FullScreen=False)
 #以上是啟用物件部分
 
