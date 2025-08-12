@@ -13,6 +13,8 @@ from openai import OpenAI
 import configparser
 from opencc import OpenCC
 import re
+import asyncio
+import aiohttp
 
 config=configparser.ConfigParser()
 config.read('config.ini')
@@ -48,7 +50,7 @@ class audio_procession():
         except Exception as e:
             print(e)
         p=pyaudio.PyAudio()
-        detecting_threashold=24#音量閾值，自己設定，每台電腦的靈敏度不一樣
+        detecting_threashold=75#音量閾值，自己設定，每台電腦的靈敏度不一樣
         stream=p.open(format=self.audio_format,
                 channels=self.channels,
                 rate=self.rate,
@@ -83,8 +85,8 @@ class audio_procession():
     def recording(self)->str:
         p=pyaudio.PyAudio()
         frames=[]
-        threashold=100 #音量閾值，自己設定，每台電腦的靈敏度不一樣
-        max_volume_threashold=95#平均音量閾值，若小於此值則視為無聲音檔
+        threashold=80 #音量閾值，自己設定，每台電腦的靈敏度不一樣
+        max_volume_threashold=75#平均音量閾值，若小於此值則視為無聲音檔
         silent_chunk=0 #沉默時長的count
         silent_duration=3 #沉默時長，簡單說要音量閾值都大於一定沉默時長才是為正常對話，否正視為環境噪音
         silent_chunks_threshold = int(silent_duration*self.rate/self.chunk)
@@ -135,29 +137,53 @@ class audio_procession():
             wf.writeframes(b"".join(frames))#音檔寫出
         return audio_path#返回檔案儲存路徑
     
-    def check_language(self,path)->str: #語言判斷，但表現有不穩定性，未來我考慮和打斷功能合併並一起訓練個模型去處理
-        client=OpenAI(api_key=openai_key)
-        audio=open(path,"rb")
-        response=client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio,
-            response_format="verbose_json")#Speech To Text
-        response=client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "developer","content": "你是負責判讀語言種類的助理，請根據提問，回答提問所使用的語言是下列三者中的哪一個。chinese、english、taigi，請從中三選一。"},
-                {"role":"user","content":f"你覺得這是正統中文、英文還是台灣方言?\
-                       若是正統中文回答:chinese，若是英文回答:english，若是台灣方言回答:taigi。提問:{response.text}"}]
-        )#讓GPT判斷語言，但目前表現不穩定
-        lg=response.choices[0].message.content
+    async def check_language(self,path)->str: #語言判斷，但表現有不穩定性，未來我考慮和打斷功能合併並一起訓練個模型去處理
+        async with aiohttp.ClientSession() as session:
+            url= "https://api.openai.com/v1/audio/transcriptions"
+            audio=open(path,"rb")
+            headers = {"Authorization": f"Bearer {openai_key}"}
+            form = aiohttp.FormData()
+            form.add_field("model", "whisper-1")
+            form.add_field("file", audio, filename="audio.wav", content_type="audio/wav")
+            form.add_field("response_format", "verbose_json")
+            audio=open(path,"rb")
+            async with session.post(
+                url=url,
+                headers=headers,
+                data=form
+            ) as resp:
+                stt_result = await resp.json()
+        #print(stt_result)
+        #================= ^^^ Speech To Text ^^^ ===========================================
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {openai_key}"}
+            data={
+                "model" : "gpt-4o-mini",
+                "messages": [
+                    {"role": "developer","content": "你是負責判讀語言種類的助理，請根據提問，回答提問所使用的語言是下列三者中的哪一個。chinese、english、taigi，請從中三選一。"},
+                    {"role":"user","content":f"你覺得這是正統中文、英文還是台語(閩南語)?\
+                  若是正統中文回答:chinese，若是英文回答:english，若是台語(閩南語)回答:taigi。提問:{stt_result['text']}"}
+                  ]
+                }
+            async with session.post(url=url,headers=headers,json=data) as resp:
+                response = await resp.json()
+                #print(response)
+                lg=response['choices'][0]['message']['content']
         try:
             lg=re.search('(chinese)|(taigi)|(english)',lg,re.I).group()
         except Exception as e:
             print(lg)
             print(e)
-        return lg
+        if lg=='chinese':
+            stt_txt=converter.convert(stt_result['text'])
+        else:
+            stt_txt= stt_result['text']
+        return lg, stt_txt
             
     def speech_to_text(self,path)->str:#三語言的語音辨識，這邊是用Liou的網站api
-        return recognize(file_path=path)
+        txt=recognize(file_path=path)        
+        return txt
 
         
 def Main(): #測試用

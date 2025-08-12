@@ -11,16 +11,18 @@ from pprint import pprint
 import queue
 import os
 import signal
+from argparse import ArgumentParser
+from distutils.util import strtobool
 
-class thread_response:
-    def __init__(self):
-        self.thread=None
-    def get_response(self,query,func,*args):
-        print(args)
-        query.put(func(*args))
-    def independent_thread(self,*args):
-        self.thread=threading.Thread(target=self.get_response,args=args,daemon=True)
-        self.thread.start()
+def parse_args():
+    parser=ArgumentParser()
+    parser.add_argument("--speech",type=lambda x:bool(strtobool(x)),default=True,nargs='?',const=True,
+                        help='determine the speech mode for recording the input query')
+    parser.add_argument("--text",type=lambda x:bool(strtobool(x)),default=False,nargs='?',const=True,
+                        help='determine the text mode for typing through keyboard to input the query')
+    args=parser.parse_args()
+    return args
+
 
 def myinterruptspeak(language,interface):
     interface.state='speak'
@@ -33,7 +35,7 @@ def myinterruptspeak(language,interface):
     interface.state='idol'
 
 rag_config = {
-                "embedding_model": "thenlper/gte-base",#BAAI/bge-base-en-v1.5#盡量找BERT類型的Model
+                "embedding_model": "Qwen/Qwen3-Embedding-0.6B",#BAAI/bge-base-en-v1.5#盡量找BERT類型的Model
                 "rag_filename": "test_rag_pool",
                 "seed": 42,
                 "top_k": 5,
@@ -42,14 +44,19 @@ rag_config = {
 setup_logger("main","main_output.log")#開啟日誌
 #以下是啟用各項物件
 knowledgebase=RAG("kdb",rag_config=rag_config)#載入RAG database
-knowledgedocs=load_text(path=".\scripts")#載入文檔#list[tuple]
+knowledgedocs=load_text(path="./scripts")#載入文檔#list[tuple]
+print(knowledgedocs) 
+"""
+目前問題:文件讀不進去，應該是卡在load_text
+解決了，問題是linux和windows的路徑分隔符(/和\的問題)
+"""
 knowledgebase.create_faiss_INFPQindex(knowledgedocs)
 keywordbase=RAG("keyword",rag_config=rag_config)
-keyworddocs=load_text(path=".\scripts\scripture_content",chunk_size=24,chunk_overlap=0)
+keyworddocs=load_text(path="./scripts/scripture_content",chunk_size=24,chunk_overlap=0)
 keywordbase.create_faiss_L2index()
 historydatabase=RAG("mdb",rag_config=rag_config)
 historydatabase.create_faiss_L2index()
-mainLLM=Chatmodel(promptpath='.\prompts\chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase,keywordbase=keywordbase)
+mainLLM=Chatmodel(promptpath='./prompts/chat_prompt.txt',knowledgeabase=knowledgebase,memorybase=historydatabase,keywordbase=keywordbase)
 MyAudio=audio_procession()
 interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=False, enable_face=False, is_FullScreen=False)
 #以上是啟用物件部分
@@ -60,6 +67,8 @@ def handle_exit(signum, frame):
 signal.signal(signal.SIGINT, handle_exit)
 
 if __name__=="__main__":
+    args=parse_args()
+
     #建立需要的參數
     text_dict={'what':''}
     interrupt=False
@@ -76,26 +85,20 @@ if __name__=="__main__":
             thread_1=threading.Thread(target=myinterruptspeak,args=(language,interface,),daemon=True)
             thread_1.start()
             time.sleep(1)
-        input=MyAudio.recording()#收音
-        print("finish recording")
-        if input=="None":#無聲音檔不執行
-            continue
+        if not args.text:
+            input=MyAudio.recording()#收音
+            print("finish recording")
+            if input=="None":#無聲音檔不執行
+                continue
         start_time=time.perf_counter()
         #interface.get_frame()
         #fileList = os.listdir('input_img')
         fileList = []
         if fileList != []:
             img_list = [encode_image('input_img/' + fileList[-1])]
-        lg_query=queue.Queue()
-        text_query=queue.Queue()
-        thread_language=thread_response()
-        thread_transcript=thread_response()
-        thread_language.independent_thread(lg_query,MyAudio.check_language,input)
-        thread_transcript.independent_thread(text_query,MyAudio.speech_to_text,input)
-        thread_language.thread.join()
-        thread_transcript.thread.join()
-        text=text_query.get()
-        language=lg_query.get()
+
+        text=MyAudio.speech_to_text(input)
+        language=MyAudio.check_language(input)
         print("text: ",text)
         print("language: ", language)
         text_dict['what']=text

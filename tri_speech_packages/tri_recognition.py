@@ -1,6 +1,8 @@
 import requests
 import base64
 import time
+import asyncio
+import aiohttp
 
 def timer(func):
     def wrapper(*args, **kwargs):
@@ -13,7 +15,7 @@ def timer(func):
     return wrapper
 
 # @timer
-def recognize(file_path: str) -> str: # Implementing ASR in Multilingual using Liou's website api ASR
+async def recognize(file_path: str) -> str: # Implementing ASR in Multilingual using Liou's website api ASR
     
     # Read the audio file in binary mode
     with open(file_path, 'rb') as audio_file:
@@ -27,13 +29,20 @@ def recognize(file_path: str) -> str: # Implementing ASR in Multilingual using L
 
     url = "https://speech.bronci.com.tw/ai/taigi/run/predict"
     headers = {"Content-Type": "application/json"}
-    response = requests.post(url, json=payload, headers=headers)
-
-    if response.status_code == 200:
-        data = response.json() # {'data': [<text>], 'is_generating': False, 'duration': <time>, 'average_duration': <time>}
-    else:
-        print(f"Error: {response.status_code}, {response.text}")
-        return ""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, headers=headers) as resp:
+            print(await resp.text())
+            print(resp.headers)
+            try:
+                response = await resp.json()
+                print("transcript:",response)
+                if response!=None:
+                    data = response # {'data': [<text>], 'is_generating': False, 'duration': <time>, 'average_duration': <time>}
+                else:
+                    print(f"Error: {response.status_code}, {response.text}")
+                    return "error"
+            except:
+                return "error"
     return data['data'][0]
 
 if __name__ == "__main__":

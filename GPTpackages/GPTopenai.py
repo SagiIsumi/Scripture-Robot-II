@@ -1,9 +1,10 @@
 import requests
+from .PromptTemplate import PromptTemplate
 
 MODEL = "gpt-4o-mini"
 
 class GPTopenai():
-    def __init__(self, openai_api_key, prompt, temperature = 0.1, text_memory=None,model=MODEL, img_memory=None) -> None:
+    def __init__(self, openai_api_key, prompt: PromptTemplate, temperature = 0.1, text_memory=None,model=MODEL, img_memory=None) -> None:
         self.key = openai_api_key
         self.model=model
         self.prompt = prompt

@@ -42,7 +42,7 @@ class RAG():
     def __init__(self,name,rag_config:Optional[dict]=None)->None:
         if rag_config==None:
             rag_config = {
-                "embedding_model": "thenlper/gte-base",#BAAI/bge-base-en-v1.5
+                "embedding_model": "Qwen/Qwen3-Embedding-0.6B",#BAAI/bge-base-en-v1.5
                 "rag_filename": "test_rag_pool",
                 "seed": 42,
                 "top_k": 5,
@@ -137,7 +137,7 @@ class RAG():
             filepath=self.name+'_index_file.index'
             faiss.write_index(self.index,filepath)
 
-    def file_wirte(self):
+    def file_write(self):
         filepath=self.name+'_index_file.index'
         jsonpath=self.name+'_id2text.json'
         with open(jsonpath,"w") as f:
@@ -168,7 +168,9 @@ class RAG():
         elif self.retrieve_order == RetrieveOrder.RANDOM.value:
             random.shuffle(results)
         
-        text_list = [self.id2evidence[result["link"]] for result in results]
+        text_list = [self.id2evidence[result["link"]] 
+                     for result in results
+                     if result["link"] in self.id2evidence]
         return text_list    
     
 def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None
@@ -191,8 +193,7 @@ def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None
                 for name in raw_documents:
                     # print(name)
                     title=name.metadata["source"].split("_")[0]
-                    print(title)
-                    title= title.split("/")[1]
+                    title= title.split(r"\\")[1]
                     key="source: "+ title +", content:" +name.page_content
                     value=name.page_content
                     texts.append((key,value))                    

@@ -1,6 +1,6 @@
 from openai import OpenAI
 from GPTpackages.PromptTemplate import PromptTemplate
-from vllm import LLM, SamplingParams
+# from vllm import LLM, SamplingParams
 import configparser
 
 class local_LLM():
@@ -53,7 +53,7 @@ class local_LLM():
                         "detail": "low"
                 }})
         return send
-    def run_offline(self,text_dict: dict, img_list=[],img_refresh=False) -> str:
+    def run_offline(self,text_dict: dict, img_list=[],img_refresh=False) -> str: # legacy
         send=self.load_img(img_list=[],img_refresh=False)
         text = self.prompt.format(text_dict)  
         print("==================================\n"+text+"\n====================================")
@@ -66,11 +66,13 @@ class local_LLM():
             {"role": "system","content": dev_prompt},
             {"role": "user","content": send}
             ]
+        """
         sampling_params = SamplingParams(temperature=0.8, top_p=0.65,max_tokens=1024)#max tokens要手動調整，default只有32
         outputs = self.offline_model.chat(message, sampling_params)
 
         generated_text = outputs[0].outputs[0].text
         return generated_text
+        """
         
     def run_online(self, text_dict: dict, img_list=[],img_refresh=False) -> str:
         send = self.load_img(img_list=[],img_refresh=False)
