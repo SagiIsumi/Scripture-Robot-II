@@ -50,7 +50,7 @@ class audio_procession():
         except Exception as e:
             print(e)
         p=pyaudio.PyAudio()
-        detecting_threashold=75#音量閾值，自己設定，每台電腦的靈敏度不一樣
+        detecting_threashold=800#音量閾值，自己設定，每台電腦的靈敏度不一樣
         stream=p.open(format=self.audio_format,
                 channels=self.channels,
                 rate=self.rate,
@@ -63,6 +63,7 @@ class audio_procession():
             while True:#開始監聽
                 for i in range(12):
                     data = stream.read(self.chunk)
+                    frames=[]
                     frames.append(data)
                 audio_data = np.frombuffer(b"".join(frames), dtype=np.int16)
                 volume = np.abs(audio_data).mean()
@@ -85,10 +86,10 @@ class audio_procession():
     def recording(self)->str:
         p=pyaudio.PyAudio()
         frames=[]
-        threashold=80 #音量閾值，自己設定，每台電腦的靈敏度不一樣
-        max_volume_threashold=75#平均音量閾值，若小於此值則視為無聲音檔
+        threashold=2200 #音量閾值，自己設定，每台電腦的靈敏度不一樣
+        max_volume_threashold=2000#平均音量閾值，若小於此值則視為無聲音檔
         silent_chunk=0 #沉默時長的count
-        silent_duration=3 #沉默時長，簡單說要音量閾值都大於一定沉默時長才是為正常對話，否正視為環境噪音
+        silent_duration=3 #沉默時長，簡單說要音量閾值都大於一定沉默時長才是為正常對話，否則視為環境噪音
         silent_chunks_threshold = int(silent_duration*self.rate/self.chunk)
         try:
             stream=p.open(format=self.audio_format,
@@ -154,7 +155,17 @@ class audio_procession():
             ) as resp:
                 stt_result = await resp.json()
         #print(stt_result)
-        #================= ^^^ Speech To Text ^^^ ===========================================
+        #================= ^^^ Speec
+        task1 = asyncio.create_task(self.language_client(stt_result['text']))
+        task2 = asyncio.create_task(self.emotion_client(stt_result['text']))
+        lg, emotion = await asyncio.gather(task1,task2)
+        if lg=='chinese':
+            stt_txt=converter.convert(stt_result['text'])
+        else:
+            stt_txt= stt_result['text']
+        return lg, stt_txt, emotion
+
+    async def language_client(self, text: str):
         async with aiohttp.ClientSession() as session:
             url = "https://api.openai.com/v1/chat/completions"
             headers = {"Authorization": f"Bearer {openai_key}"}
@@ -163,7 +174,7 @@ class audio_procession():
                 "messages": [
                     {"role": "developer","content": "你是負責判讀語言種類的助理，請根據提問，回答提問所使用的語言是下列三者中的哪一個。chinese、english、taigi，請從中三選一。"},
                     {"role":"user","content":f"你覺得這是正統中文、英文還是台語(閩南語)?\
-                  若是正統中文回答:chinese，若是英文回答:english，若是台語(閩南語)回答:taigi。提問:{stt_result['text']}"}
+                  若是正統中文回答:chinese，若是英文回答:english，若是台語(閩南語)回答:taigi。提問:{text}"}
                   ]
                 }
             async with session.post(url=url,headers=headers,json=data) as resp:
@@ -175,14 +186,35 @@ class audio_procession():
         except Exception as e:
             print(lg)
             print(e)
-        if lg=='chinese':
-            stt_txt=converter.convert(stt_result['text'])
-        else:
-            stt_txt= stt_result['text']
-        return lg, stt_txt
-            
-    def speech_to_text(self,path)->str:#三語言的語音辨識，這邊是用Liou的網站api
-        txt=recognize(file_path=path)        
+        return lg
+    
+    async def emotion_client(self, text: str):
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {openai_key}"}
+            data={
+                "model" : "gpt-4o-mini",
+                "messages": [
+                    {"role": "developer","content": "你是負責判讀語句情緒的助理，請根據提問，從以下情緒選出最適合的情緒。neutral, happy, bored, sad, angry, surprised。"},
+                    {"role":"user","content":f"你覺得這句話語氣代表了哪種情緒?\
+                  若是代表開心回答:happy，若是代表無趣回答:bored，若是代表悲傷回答:sad，若是代表生氣回答:angry，若是代表驚訝回答:surprised，若判斷不出來回答:neutral。提問:{text}"}
+                  ]
+                }
+            async with session.post(url=url,headers=headers,json=data) as resp:
+                response = await resp.json()
+                #print(response)
+                emotion=response['choices'][0]['message']['content']
+        try:
+            emotion=re.search('(neutral)|(happy)|(sad)|(bored)|(amgry)|(surprised)',emotion,re.I).group()
+        except Exception as e:
+            print(emotion)
+            print(e)
+            emotion = 'neutral'
+        return emotion
+
+
+    async def speech_to_text(self,path)->str:#三語言的語音辨識，這邊是用Liou的網站api
+        txt= await recognize(file_path=path)        
         return txt
 
         

@@ -24,10 +24,11 @@ class SocketClient():
                 continue
 
 if __name__ == "__main__":
-    client = SocketClient('140.112.14.225', 2468)
+    client = SocketClient('127.0.0.1', 12345)
+    client_recv = SocketClient('127.0.0.1', 4478)
     text = input('請輸入: ')
     text = '佳勳' + '@@' + text
     client.send_msg(text)
     print("wait for msg")
-    r = client.wait_msg()
+    r = client_recv.wait_msg()
     print('接收: ', r)

@@ -11,6 +11,7 @@ from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import random
 import numpy as np
+import time
 
 class JSONLinesHandler(logging.FileHandler):
     def emit(self, record):
@@ -189,12 +190,13 @@ def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None
         assert isinstance(path, str)
         for content in Path(path).glob("*.txt"):
             raw_documents = TextLoader(str(content), encoding='utf-8').load_and_split(splitter)
-            if path=="./scripts":#讀取經文資料時對metadata進行處理並儲存#注意linux和windows差距
+            if path==r".\scripts":#讀取經文資料時對metadata進行處理並儲存#注意linux和windows差距
                 for name in raw_documents:
                     # print(name)
                     title=name.metadata["source"].split("_")[0]
-                    title= title.split(r"\\")[1]
-                    key="source: "+ title +", content:" +name.page_content
+                    scr = name.metadata["source"].split("_")[1]
+                    title= title.split('\\')[1]
+                    key="scripture: "+ scr +", source: "+ title +", content:" +name.page_content
                     value=name.page_content
                     texts.append((key,value))                    
             else:

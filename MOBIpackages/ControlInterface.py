@@ -302,8 +302,8 @@ class ControlInterface():
                 if recv != 'ok':
                     print('Error: Action failed')
                 self.action = 'nothing'
-                continue
             else:
+                time.sleep(0.01)
                 continue
 
 ############################### 調用函數 ###########################################
@@ -315,7 +315,7 @@ class ControlInterface():
         index = random.randint(1, 6)
         if index == 1:
             return 'rnd1'
-        elif index == 2:
+        elif index == 2 or index ==5:
             return 'rnd2'
         elif index == 3:
             return 'rnd3'
@@ -332,11 +332,11 @@ class ControlInterface():
             if self.enable_camera:
                 self.get_frame()
             # 語音辨識
-            if language == 'ch':
+            if language == 'chinese':
                 text = normal_listen()
-            elif  language == 'eng':
+            elif  language == 'english':
                 text = normal_listen()
-            elif  language == 'minnan':
+            elif  language == 'taigi':
                 text = minnan_listen()
             else:
                 text = normal_listen()
@@ -349,7 +349,7 @@ class ControlInterface():
                 self.state = 'idol'
                 return text
     def inner_female_speak(self,input_text):
-        female_speak(input_text,volume=1,speed='fast',tone='normal')
+        female_speak(input_text,volume=1,speed='normal',tone='normal')
         self.trigger=True
     def inner_minnan_speak(self,input_text):
         minnan_speak2(input_text)
@@ -371,7 +371,7 @@ class ControlInterface():
         interrupt=False
         self.trigger=False
         try:
-            if language == 'ch' or language=='en':
+            if language == 'chinese' or language=='english':
                 speaker=threading.Thread(target=self.inner_female_speak, args=(talk,), daemon=True)
                 speaker.start()#播音執行緒
             else:
@@ -380,7 +380,7 @@ class ControlInterface():
         except Exception as e:
             print(e)
         p=pyaudio.PyAudio()
-        detecting_threashold=55#音量閾值
+        detecting_threashold=2200#音量閾值
         stream=p.open(format=audio_format,
                 channels=channels,
                 rate=rate,
@@ -391,6 +391,7 @@ class ControlInterface():
             while True:#開始收音
                 for i in range(12):
                     data = stream.read(chunk)
+                    #frames=[]
                     frames.append(data)
                 audio_data = np.frombuffer(b"".join(frames), dtype=np.int16)
                 volume = np.abs(audio_data).mean()
@@ -414,7 +415,7 @@ class ControlInterface():
 
 if __name__ == '__main__':
     interface = ControlInterface(enable_camera=False, show_img=False, enable_arm=True, enable_face=True, is_FullScreen=False)
-    interface.express('大家好，我叫做莫比', 'happy', 'test', language='minnan')
+    interrupt=interface.express('大家好，我叫做莫比', 'happy', 'test', language='minnan')
     print('end')
     exit()
 
