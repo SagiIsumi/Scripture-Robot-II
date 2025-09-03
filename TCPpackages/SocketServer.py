@@ -29,7 +29,7 @@ class SocketServer():
                     data = conn.recv(1024)
                     if data:
                         s.shutdown(socket.SHUT_RDWR)
-                        sleep(1)
+                        sleep(0.05)
                         return data.decode()
                     else:
                         continue
