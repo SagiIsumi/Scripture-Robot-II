@@ -86,10 +86,10 @@ class audio_procession():
     def recording(self)->str:
         p=pyaudio.PyAudio()
         frames=[]
-        threashold=2200 #音量閾值，自己設定，每台電腦的靈敏度不一樣
-        max_volume_threashold=2000#平均音量閾值，若小於此值則視為無聲音檔
+        threashold=75 #音量閾值，自己設定，每台電腦的靈敏度不一樣
+        max_volume_threashold=75#平均音量閾值，若小於此值則視為無聲音檔
         silent_chunk=0 #沉默時長的count
-        silent_duration=3 #沉默時長，簡單說要音量閾值都大於一定沉默時長才是為正常對話，否則視為環境噪音
+        silent_duration=1 #沉默時長，簡單說要音量閾值都大於一定沉默時長才是為正常對話，否則視為環境噪音
         silent_chunks_threshold = int(silent_duration*self.rate/self.chunk)
         try:
             stream=p.open(format=self.audio_format,

@@ -3,11 +3,13 @@ from GPTpackages.ImageBufferMemory import encode_image
 from tri_speech_packages.trilingual_module import female_speak, minnan_speak2
 from MOBIpackages import ControlInterface
 from tri_speech_packages.speech import audio_procession
-from TCPpackages import GPU_Client
+from TCPpackages.GPU_Client import GPU_Client
 from pathlib import Path
 import asyncio
 import threading
 import time
+from distutils.util import strtobool
+import signal
 
 def parse_args():
     parser=ArgumentParser()
@@ -29,8 +31,15 @@ def myinterruptspeak(language,interface):
 
 #以下是啟用各項物件
 MyAudio=audio_procession()
-interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=True, enable_face=True, is_FullScreen=True)
-client = SocketClient('140.112.14.248', 12345)
+interface=ControlInterface.ControlInterface(enable_camera=False, show_img=False, enable_arm=False, enable_face=True, is_FullScreen=False)
+client =GPU_Client('140.112.14.248', 12345)
+
+def handle_exit(signum, frame):
+    time.sleep(5)
+    client.s.close()
+    print("done")
+    exit(0)
+signal.signal(signal.SIGINT, handle_exit)
 
 
 async def input_trans(MyAudio:object,user_input:str):
@@ -48,6 +57,7 @@ async def input_trans(MyAudio:object,user_input:str):
 
 if __name__=="__main__":
     args=parse_args()
+    language = 'chinese'
     #建立需要的參數
     text_dict={'what':''}
     interrupt=False
@@ -96,9 +106,11 @@ if __name__=="__main__":
         #interrupt=MyAudio.speaking(result,language=language) #單獨播音(debug)
         
         #SSH client
-        client.send_msg()
+        print('client test')
+        client.send_msg(query)
         result = client.wait_msg()
-
+        print(result)
+        
         interrupt=interface.express(result, emotion, 'nothing', language=language)#整合模型
         end_time2=time.perf_counter()
         elapsed_time1=end_time1-start_time
