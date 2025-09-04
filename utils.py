@@ -187,7 +187,7 @@ def load_text(path:str,spilitter:Optional[RecursiveCharacterTextSplitter]=None
         if spilitter==None: 
             splitter=RecursiveCharacterTextSplitter(separators=sep,chunk_size=chunk_size,chunk_overlap=chunk_overlap)
         raw_documents=None
-        assert isinstance(path, str)
+        #assert isinstance(path, str)
         for content in Path(path).glob("*.txt"):
             raw_documents = TextLoader(str(content), encoding='utf-8').load_and_split(splitter)
             if path==r".\scripts":#讀取經文資料時對metadata進行處理並儲存#注意linux和windows差距
